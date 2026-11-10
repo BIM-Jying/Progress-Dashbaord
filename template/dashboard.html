@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>XER Progress Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--card:#161d38;--tx:#e8ecff;--mu:#97a0c8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#1b2350,#0b1020 60%);color:var(--tx);font:14px system-ui,Segoe UI,Arial,sans-serif;display:flex;min-height:100vh}
+#sb{width:210px;flex:none;background:linear-gradient(180deg,#7209b7,#3a0ca3 45%,#4361ee);padding:14px 10px;position:sticky;top:0;height:100vh;overflow:auto}
+#sb h1{font-size:16px;margin:4px 8px 14px}#sb button{display:block;width:100%;text-align:left;margin:4px 0;padding:10px 12px;border:0;border-radius:10px;color:#fff;background:rgba(255,255,255,.10);font-size:13px;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+#sb button.on{background:#fff;color:#3a0ca3;font-weight:700;transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
+#main{flex:1;min-width:0;padding:12px}
+#bar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;background:var(--card);padding:10px;border-radius:14px;margin-bottom:12px;box-shadow:0 10px 24px rgba(0,0,0,.4)}
+#bar label{display:flex;flex-direction:column;font-size:11px;color:var(--mu);gap:2px}
+select,input{background:#0f1530;color:var(--tx);border:1px solid #33407a;border-radius:8px;padding:6px;max-width:170px}
+.up{background:linear-gradient(135deg,#f72585,#ff9e00);color:#fff;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:700;box-shadow:0 5px 0 #8a1450}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+.k{border-radius:14px;padding:12px;color:#fff;transform:perspective(600px) rotateX(5deg);box-shadow:0 12px 0 -4px rgba(0,0,0,.35),0 16px 24px rgba(0,0,0,.45);transition:.2s}
+.k:hover{transform:perspective(600px) rotateX(0) translateY(-3px)}.k small{opacity:.85;display:block}.k b{font-size:20px}
+.card{background:var(--card);border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 14px 0 -6px #0a0e21,0 18px 30px rgba(0,0,0,.5);border-top:3px solid #4cc9f0}
+.card h3{margin:0 0 8px;font-size:14px}.ch{position:relative;height:340px}.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.pg{display:none}.pg.on{display:block}.tw{overflow:auto;max-height:480px}table{border-collapse:collapse;width:100%;font-size:12px}th{position:sticky;top:0;background:#26306a;text-align:left}th,td{padding:5px 8px;border-bottom:1px solid #263061;white-space:nowrap}
+.bad{color:#ff6b81;font-weight:700}.ok{color:#06d6a0}.warn{color:#ffb703}#msg{padding:40px;text-align:center;color:var(--mu)}
+@media(max-width:700px){body{flex-direction:column}#sb{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:4px}#sb h1{width:100%}#sb button{width:auto}}
+</style><!--PRELOAD--></head><body>
+<div id="sb"><h1>📊 XER Dashboard</h1>
+<button data-p="evm" class="on">🎯 EVMS Overview</button><button data-p="sc">📈 S-Curves</button><button data-p="gr">🧩 Compare S-Curves</button><button data-p="hi">📊 Histograms</button><button data-p="la">🔭 Look-Ahead Plan</button><button data-p="dl">🚨 Early Delays</button><button data-p="dc">✅ Data Check</button></div>
+<div id="main"><div id="bar">
+<label class="up">Upload .xer / MS Project .xml<input id="f" type="file" accept=".xer,.txt,.xml,.mpp" hidden></label>
+<label>Project<select id="proj" class="f"></select></label>
+<label>Cost type<select id="ct" class="f"><option value="All">All (Total)</option><option value="L">Labor</option><option value="N">Non-labor</option></select></label>
+<label>Phase<select id="ph" class="f"><option>All</option><option>Design</option><option>Procurement</option><option>Construction</option><option>Other</option></select></label>
+<label>WBS level<select id="wl" class="f"><option value="">All</option><option value="0">Level 01</option><option value="1">Level 02</option><option value="2">Level 03</option></select></label>
+<label>WBS value<select id="wv" class="f"></select></label>
+<label>Activity code<select id="at" class="f"></select></label>
+<label>Code value<select id="av" class="f"></select></label>
+<label>Unit<select id="un" class="f"><option value="c">Cost</option><option value="h">Hours (qty)</option></select></label>
+<label>From<input type="date" id="d1" class="f"></label><label>To<input type="date" id="d2" class="f"></label></div>
+<div id="msg">Upload a Primavera P6 .xer file to build the dashboard. All numbers are computed in your browser directly from the file.</div>
+<div id="app" hidden>
+<div class="pg on" id="p-evm"><div class="grid" id="kp"></div><div class="two"><div class="card"><h3>SPI / CPI gauges</h3><div class="two"><div class="ch" style="height:200px"><canvas id="g1"></canvas></div><div class="ch" style="height:200px"><canvas id="g2"></canvas></div></div></div><div class="card"><h3>BAC · PV · EV · AC · EAC (3D columns)</h3><div class="ch" style="height:240px"><canvas id="bc"></canvas></div></div></div><div class="card"><h3>S-Curve (cumulative)</h3><div class="ch"><canvas id="s0"></canvas></div></div></div>
+<div class="pg" id="p-sc"><div class="card"><h3>S-Curve <select id="sm" class="f"><option value="v">Value</option><option value="p">% of BAC</option></select></h3><div class="ch" style="height:420px"><canvas id="s1"></canvas></div></div><div class="card"><h3>Monthly Planned vs Actual/Forecast</h3><div class="ch"><canvas id="s2"></canvas></div></div></div>
+<div class="pg" id="p-gr"><div class="card"><h3>Compare by <select id="gb" class="f"><option value="k">Cost type (Labor / Non-labor)</option><option value="p">Phase</option><option value="w0">WBS Level 01</option><option value="w1">WBS Level 02</option><option value="w2">WBS Level 03</option><option value="a">Selected Activity code type</option></select> Basis <select id="gk" class="f"><option value="P">Planned</option><option value="A">Actual</option><option value="E">Earned</option><option value="F">Forecast</option></select></h3><div class="ch" style="height:440px"><canvas id="s3"></canvas></div></div></div>
+<div class="pg" id="p-hi"><div class="card"><h3>Resource histogram – stacked by <select id="hs" class="f"><option value="r">Resource</option><option value="t">Resource type</option><option value="p">Phase</option><option value="w0">WBS Level 01</option></select> Basis <select id="hk" class="f"><option value="P">Planned</option><option value="A">Actual</option><option value="F">Actual + Forecast</option></select></h3><div class="ch" style="height:420px"><canvas id="h1"></canvas></div></div><div class="card"><h3>Resource histogram (non-stacked, top 6 resources)</h3><div class="ch"><canvas id="h2"></canvas></div></div></div>
+<div class="pg" id="p-la"><div class="card"><h3>Look-ahead window <select id="lw" class="f"><option>2</option><option selected>4</option><option>6</option><option>8</option><option>12</option></select> weeks from data date</h3><div class="ch" style="height:240px"><canvas id="l1"></canvas></div></div><div class="card"><div class="tw" id="lt"></div></div></div>
+<div class="pg" id="p-dl"><div class="two"><div class="card"><h3>Delays by type</h3><div class="ch" style="height:260px"><canvas id="e1"></canvas></div></div><div class="card"><h3>Delayed activities by WBS Level 01</h3><div class="ch" style="height:260px"><canvas id="e2"></canvas></div></div></div><div class="card"><div class="tw" id="et"></div></div></div>
+<div class="pg" id="p-dc"><div class="card"><div class="tw" id="dt"></div></div></div>
+</div></div>
+<script>
+const $=i=>document.getElementById(i),COL=['#ff4d6d','#ffb703','#06d6a0','#4cc9f0','#a78bfa','#f72585','#90be6d','#f9844a','#43aa8b','#7b9cff','#e9c46a','#c77dff'];
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const D=s=>{if(!s)return null;const d=new Date(s.replace(' ','T'));return isNaN(d)?null:d},fd=d=>d?d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'';
+const N0=v=>(+v||0).toLocaleString(undefined,{maximumFractionDigits:0}),num=v=>parseFloat(v)||0;
+const mi=d=>d.getFullYear()*12+d.getMonth(),MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let T={},TK=[],WB={},B=0,NM=0,DD=null,PG='evm',CH={};
+function parse(tx){const t={};let c=null,f=null;for(const l of tx.split(/\r?\n/)){if(l[0]!='%')continue;if(l[1]=='T'){c=l.slice(3).trim();t[c]=[];f=null}else if(l[1]=='F')f=l.split('\t').slice(1);else if(l[1]=='R'&&c&&f){const v=l.split('\t').slice(1),o={};f.forEach((k,i)=>o[k]=v[i]);t[c].push(o)}}return t}
+$('f').onchange=e=>{const fl=e.target.files[0],r=new FileReader(),m=$('msg'),xml=/\.xml$/i.test(fl.name);m.hidden=false;
+if(/\.mpp$/i.test(fl.name)){m.textContent='A binary .mpp file cannot be read in a browser. In MS Project use File > Save As > XML Format (*.xml), then upload that .xml file here.';return}
+r.onload=()=>{try{xml?loadXML(r.result):load(parse(r.result))}catch(x){m.hidden=false;m.textContent='Could not read file: '+x.message}};r.readAsText(fl,xml?'utf-8':'windows-1252')};
+function load(t){T=t;if(!t.TASK)throw new Error('No TASK table found');
+WB={};(t.PROJWBS||[]).forEach(w=>WB[w.wbs_id]=w);
+const chain=id=>{const a=[];let w=WB[id],g=0;while(w&&g++<30){a.unshift(w.wbs_name);w=w.parent_wbs_id&&WB[w.parent_wbs_id]}return a};
+const RS={};(t.RSRC||[]).forEach(r=>RS[r.rsrc_id]=r);
+const AT={},AC={};(t.ACTVTYPE||[]).forEach(a=>AT[a.actv_code_type_id]=a.actv_code_type);(t.ACTVCODE||[]).forEach(a=>AC[a.actv_code_id]=a.actv_code_name||a.short_name);
+const TA={};(t.TASKACTV||[]).forEach(a=>{(TA[a.task_id]=TA[a.task_id]||{})[AT[a.actv_code_type_id]||a.actv_code_type_id]=AC[a.actv_code_id]});
+const AS={};(t.TASKRSRC||[]).forEach(x=>{const r=RS[x.rsrc_id]||{};(AS[x.task_id]=AS[x.task_id]||[]).push({r:r.rsrc_name||r.rsrc_short_name||('Rsrc '+x.rsrc_id),ty:r.rsrc_type||'',k:r.rsrc_type=='RT_Labor'?'L':'N',ct:num(x.target_cost),ca:num(x.act_reg_cost)+num(x.act_ot_cost),cr:num(x.remain_cost),ht:num(x.target_qty),ha:num(x.act_reg_qty)+num(x.act_ot_qty),hr:num(x.remain_qty)})});
+const re={d:/design|engineer|drawing|detail/i,p:/procure|purchas|supply|vendor|deliver|fabricat|material|order/i,c:/construct|install|erect|civil|erection|piping|structur|commission|site/i};
+TK=t.TASK.filter(k=>k.task_type!='TT_WBS').map(k=>{const ch=chain(k.wbs_id),cd=TA[k.task_id]||{},txt=ch.join(' ')+' '+k.task_name+' '+Object.values(cd).join(' ');
+const st=k.status_code,td=num(k.target_drtn_hr_cnt),rd=num(k.remain_drtn_hr_cnt);let pct=st=='TK_Complete'?1:st=='TK_NotStart'?0:(k.complete_pct_type=='CP_Phys'?num(k.phys_complete_pct)/100:(td>0?Math.min(1,Math.max(0,1-rd/td)):0));
+return{id:k.task_id,pj:k.proj_id,code:k.task_code,name:k.task_name,st,pct,ts:D(k.target_start_date),te:D(k.target_end_date),es:D(k.early_start_date),ee:D(k.early_end_date),as:D(k.act_start_date),ae:D(k.act_end_date),rs:D(k.restart_date),re:D(k.reend_date),fl:k.total_float_hr_cnt===''||k.total_float_hr_cnt==null?null:num(k.total_float_hr_cnt)/8,w:[ch[1]||'—',ch[2]||'—',ch[3]||'—'],wid:k.wbs_id,cd,a:AS[k.task_id]||[],
+ph:re.d.test(txt)?'Design':re.p.test(txt)?'Procurement':re.c.test(txt)?'Construction':'Other'}});
+const ps=t.PROJECT||[];$('proj').innerHTML='<option value="">All projects</option>'+ps.map(p=>`<option value="${esc(p.proj_id)}">${esc(p.proj_short_name||p.proj_id)}</option>`).join('');
+if(ps.length>0&&ps.length<2)$('proj').value=ps[0].proj_id;
+fill('at',['',...new Set(Object.values(TA).flatMap(o=>Object.keys(o)))],'All code types');
+$('msg').hidden=true;$('app').hidden=false;bounds();refill();render()}
+function loadXML(tx){const x=new DOMParser().parseFromString(tx,'application/xml'),root=x.documentElement;if(root.localName!='Project')throw new Error('Not a Microsoft Project XML file');
+const kd=(e,n)=>[...e.children].filter(k=>k.localName==n),g=(e,n)=>{const c=kd(e,n)[0];return c?c.textContent:''},sub=(e,a,b)=>{const p=kd(e,a)[0];return p?kd(p,b):[]};
+const hr=s=>{const m=/PT(\d+)H(\d+)M/.exec(s||'');return m?+m[1]+m[2]/60:0},bl=e=>kd(e,'Baseline').find(b=>g(b,'Number')=='0');
+const RS={};sub(root,'Resources','Resource').forEach(r=>RS[g(r,'UID')]={n:g(r,'Name'),k:g(r,'Type')=='1'?'L':'N',ty:g(r,'Type')=='1'?'RT_Labor':g(r,'Type')=='0'?'RT_Mat':'RT_Cost'});
+const EA={};sub(root,'ExtendedAttributes','ExtendedAttribute').forEach(a=>EA[g(a,'FieldID')]=g(a,'Alias')||g(a,'FieldName'));
+const AS={},ASL=[];sub(root,'Assignments','Assignment').forEach(a=>{const r=RS[g(a,'ResourceUID')];if(!r)return;const b=bl(a),o={r:r.n,ty:r.ty,k:r.k,ct:num(b?g(b,'Cost'):g(a,'Cost')),ca:num(g(a,'ActualCost')),cr:num(g(a,'RemainingCost')),ht:hr(b?g(b,'Work'):g(a,'Work')),ha:hr(g(a,'ActualWork')),hr:hr(g(a,'RemainingWork'))};(AS[g(a,'TaskUID')]=AS[g(a,'TaskUID')]||[]).push(o);ASL.push(o)});
+const rx=[[/design|engineer|drawing|detail/i,'Design'],[/procure|purchas|supply|vendor|deliver|fabricat|material|order/i,'Procurement'],[/construct|install|erect|civil|erection|piping|structur|commission|site/i,'Construction']];
+const stack=[],WBL=[],types=new Set();TK=[];
+for(const k of sub(root,'Tasks','Task')){const uid=g(k,'UID'),L=+g(k,'OutlineLevel')||0;if(uid=='0'||!L)continue;const name=g(k,'Name');
+if(g(k,'Summary')=='1'){stack.length=L;stack[L]=name;WBL.push({wbs_id:uid,wbs_name:name});continue}
+const cd={};kd(k,'ExtendedAttribute').forEach(e=>{const v=g(e,'Value'),t=EA[g(e,'FieldID')];if(v&&t){cd[t]=v;types.add(t)}});
+const b=bl(k),pc=num(g(k,'PhysicalPercentComplete'))||num(g(k,'PercentComplete')),as=D(g(k,'ActualStart')),ae=D(g(k,'ActualFinish')),s=D(g(k,'Start')),f=D(g(k,'Finish')),st=pc>=100||ae?'TK_Complete':(pc>0||as)?'TK_Active':'TK_NotStart';
+let a=AS[uid]||[];if(!a.length&&num(g(k,'Cost'))>0)a=[{r:'Task cost',ty:'RT_Cost',k:'N',ct:num(b?g(b,'Cost'):g(k,'Cost')),ca:num(g(k,'ActualCost')),cr:num(g(k,'RemainingCost')),ht:0,ha:0,hr:0}];
+const txt=stack.slice(1).join(' ')+' '+name+' '+Object.values(cd).join(' '),sl=g(k,'TotalSlack');
+TK.push({id:uid,pj:'1',code:g(k,'WBS')||g(k,'ID'),name,st,pct:st=='TK_Complete'?1:pc/100,ts:b?D(g(b,'Start')):s,te:b?D(g(b,'Finish')):f,es:s,ee:f,as,ae,rs:D(g(k,'ResumeDate'))||s,re:f,fl:sl===''?null:num(sl)/4800,w:[stack[1]||'—',stack[2]||'—',stack[3]||'—'],wid:uid,cd,a,ph:(rx.find(r=>r[0].test(txt))||[0,'Other'])[1]})}
+if(!TK.length)throw new Error('No detail tasks found in XML');
+T={PROJECT:[{proj_id:'1',proj_short_name:g(root,'Name')||g(root,'Title')||'Project',last_recalc_date:g(root,'StatusDate')&&g(root,'StatusDate')!='NA'?g(root,'StatusDate'):g(root,'CurrentDate')}],TASKRSRC:ASL,RSRC:Object.values(RS),PROJWBS:WBL,ACTVTYPE:[...types],ACTVCODE:[]};
+$('proj').innerHTML='<option value="1">'+esc(T.PROJECT[0].proj_short_name)+'</option>';fill('at',['',...types],'All code types');$('msg').hidden=true;$('app').hidden=false;bounds();refill();render()}
+function fill(id,a,all){$(id).innerHTML=a.map(v=>`<option value="${esc(v)}">${v===''?all:esc(v)}</option>`).join('')}
+function bounds(){const pj=$('proj').value,ps=(T.PROJECT||[]).filter(p=>!pj||p.proj_id==pj),ds=ps.map(p=>D(p.last_recalc_date)).filter(Boolean);
+const tk=TK.filter(t=>!pj||t.pj==pj),all=tk.flatMap(t=>[t.ts,t.te,t.es,t.ee,t.as,t.ae,t.rs,t.re]).filter(Boolean);
+DD=ds.length?new Date(Math.max(...ds)):new Date(Math.max(...tk.map(t=>t.ae||t.as).filter(Boolean)));all.push(DD);
+const mn=new Date(Math.min(...all)),mx=new Date(Math.max(...all));B=mi(mn);NM=mi(mx)-B+1;
+$('d1').value=new Date(mn.getFullYear(),mn.getMonth(),1).toLocaleDateString('en-CA');$('d2').value=new Date(mx.getFullYear(),mx.getMonth()+1,0).toLocaleDateString('en-CA')}
+function refill(){const l=$('wl').value,tk=TK.filter(t=>!$('proj').value||t.pj==$('proj').value);
+fill('wv',['',...(l===''?[]:[...new Set(tk.map(t=>t.w[+l]))].sort())],'All');
+const ty=$('at').value;fill('av',['',...(ty?[...new Set(tk.map(t=>t.cd[ty]).filter(Boolean))].sort():[])],'All')}
+const U=()=>$('un').value,asg=t=>t.a.filter(x=>$('ct').value=='All'||x.k==$('ct').value);
+function tasks(){const pj=$('proj').value,ph=$('ph').value,l=$('wl').value,wv=$('wv').value,at=$('at').value,av=$('av').value;
+return TK.filter(t=>(!pj||t.pj==pj)&&(ph=='All'||t.ph==ph)&&(l===''||!wv||t.w[+l]==wv)&&(!at||!av||t.cd[at]==av))}
+function spread(a,v,s,e){if(!v||!s||!e)return;const put=(d,x)=>{const i=mi(d)-B;if(i>=0&&i<NM)a[i]+=x};if(e<=s){put(s,v);return}const tot=e-s;let c=s;while(c<e){const nx=new Date(c.getFullYear(),c.getMonth()+1,1),n=nx<e?nx:e;put(c,v*(n-c)/tot);c=n}}
+function monthly(ts,kind,kf){const o={},u=U();for(const t of ts)for(const x of asg(t)){const k=kf(t,x),a=o[k]||(o[k]=new Array(NM).fill(0)),tc=x[u+'t'],ac=x[u+'a'],rc=x[u+'r'],ae=t.ae||(t.as?DD:null);
+if(kind=='P')spread(a,tc,t.ts,t.te);else if(kind=='A')spread(a,ac,t.as,ae);else if(kind=='E')spread(a,tc*t.pct,t.as,ae);
+else if(kind=='R'){let s=t.rs||t.es,e=t.re||t.ee;if(!s||!e)continue;if(s<DD)s=DD;if(e<s)e=s;spread(a,rc,s,e)}}return o}
+const one=(ts,k)=>monthly(ts,k,()=>'a').a||new Array(NM).fill(0),cum=a=>{let s=0;return a.map(v=>s+=v)},add=(a,b)=>a.map((v,i)=>v+b[i]);
+const lab=i=>{const m=B+i;return MON[m%12]+' '+String(Math.floor(m/12)).slice(2)};
+function rng(){const a=Math.max(0,mi(new Date($('d1').value||0))-B),b=Math.min(NM-1,mi(new Date($('d2').value||0))-B);return[a,Math.max(a,b)]}
+const sl=a=>{const[x,y]=rng();return a.slice(x,y+1)},labs=()=>{const[x,y]=rng(),r=[];for(let i=x;i<=y;i++)r.push(lab(i));return r};
+Chart.register({id:'d3',beforeDatasetsDraw(c){c.ctx.save();c.ctx.shadowColor='rgba(0,0,0,.55)';c.ctx.shadowBlur=10;c.ctx.shadowOffsetY=7;c.ctx.shadowOffsetX=3},afterDatasetsDraw(c){c.ctx.restore()}});
+Chart.defaults.color='#c8d0ff';Chart.defaults.maintainAspectRatio=false;Chart.defaults.borderColor='#2a3366';
+function mk(id,cfg){if(CH[id])CH[id].destroy();CH[id]=new Chart($(id),cfg)}
+const grad=(id,c)=>{const x=$(id).getContext('2d'),g=x.createLinearGradient(0,0,0,300);g.addColorStop(0,c+'cc');g.addColorStop(1,c+'11');return g};
+function ddIdx(){const[x]=rng();return mi(DD)-B-x}
+function scCfg(id,pct){const ts=tasks(),P=cum(one(ts,'P')),A=cum(one(ts,'A')),E=cum(one(ts,'E')),F=cum(add(one(ts,'A'),one(ts,'R'))),bac=P[NM-1]||1,k=pct?100/bac:1,di=mi(DD)-B,cut=(a,from)=>sl(a).map((v,i)=>{const g=i+rng()[0];return(from?g>=di:g<=di)?+(v*k).toFixed(2):null});
+const ln=(l,d,c,f,dash)=>({label:l,data:d,borderColor:c,backgroundColor:f?grad(id,c):c,fill:!!f,tension:.3,borderWidth:3,pointRadius:0,borderDash:dash||[]});
+mk(id,{type:'line',data:{labels:labs(),datasets:[ln('Planned',cut(P),'#4cc9f0',1),ln('Earned',cut(E),'#06d6a0'),ln('Actual',cut(A),'#ff4d6d'),ln('Forecast',cut(F,1),'#ffb703',0,[8,5])]},options:{interaction:{mode:'index',intersect:false},scales:{y:{title:{display:true,text:(pct?'% of BAC':U()=='c'?'Cost':'Hours')}}},plugins:{d3:{}}}})}
+function evmCalc(ts){const u=U(),dd=DD;let BAC=0,PV=0,EV=0,AC=0,RC=0;for(const t of ts)for(const x of asg(t)){const tc=x[u+'t'];BAC+=tc;AC+=x[u+'a'];RC+=x[u+'r'];EV+=tc*t.pct;if(t.ts&&t.te){PV+=tc*(dd>=t.te?1:dd<=t.ts?0:(dd-t.ts)/(t.te-t.ts))}}
+const SPI=PV?EV/PV:0,CPI=AC?EV/AC:0,EAC=CPI?BAC/CPI:BAC;return{BAC,PV,EV,AC,RC,SV:EV-PV,CV:EV-AC,SPI,CPI,EAC,ETC:EAC-AC,VAC:BAC-EAC,TCPI:BAC-AC?(BAC-EV)/(BAC-AC):0,PC:BAC?EV/BAC*100:0,FC:AC+RC}}
+function gauge(id,v,l){const c=v>=1?'#06d6a0':v>=.9?'#ffb703':'#ff4d6d',m=Math.min(v,2);mk(id,{type:'doughnut',data:{labels:[l,''],datasets:[{data:[m,2-m],backgroundColor:[c,'#222a55'],borderWidth:0}]},options:{rotation:-90,circumference:180,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:false},title:{display:true,text:l+' = '+v.toFixed(2),font:{size:16}}}}})}
+function render(){if(!TK.length)return;const ts=tasks(),r={evm,sc,gr,hi,la,dl,dc}[PG];r(ts)}
+function evm(ts){const e=evm_(ts),c=(l,v,g,f)=>`<div class="k" style="background:linear-gradient(135deg,${g})"><small>${l}</small><b>${f?v:N0(v)}</b></div>`,pos=v=>v>=0?'#06d6a0,#118ab2':'#ff4d6d,#9d0208';
+$('kp').innerHTML=c('Data date',fd(DD),'#7209b7,#3a0ca3',1)+c('BAC (budget)',e.BAC,'#4361ee,#3a0ca3')+c('PV planned',e.PV,'#4cc9f0,#4361ee')+c('EV earned',e.EV,'#06d6a0,#118ab2')+c('AC actual',e.AC,'#ff4d6d,#c9184a')+c('Remaining',e.RC,'#f9844a,#e85d04')+c('SV = EV−PV',e.SV,pos(e.SV))+c('CV = EV−AC',e.CV,pos(e.CV))+c('SPI',e.SPI.toFixed(2),e.SPI>=1?'#06d6a0,#118ab2':'#ff4d6d,#9d0208',1)+c('CPI',e.CPI.toFixed(2),e.CPI>=1?'#06d6a0,#118ab2':'#ff4d6d,#9d0208',1)+c('EAC = BAC/CPI',e.EAC,'#a78bfa,#7209b7')+c('ETC',e.ETC,'#ffb703,#f48c06')+c('VAC',e.VAC,pos(e.VAC))+c('TCPI',e.TCPI.toFixed(2),'#43aa8b,#277da1',1)+c('% Complete (EV/BAC)',e.PC.toFixed(1)+'%','#f72585,#7209b7',1)+c('Activities',ts.length,'#577590,#264653',1);
+gauge('g1',e.SPI,'SPI');gauge('g2',e.CPI,'CPI');
+mk('bc',{type:'bar',data:{labels:['BAC','PV','EV','AC','EAC'],datasets:[{data:[e.BAC,e.PV,e.EV,e.AC,e.EAC],backgroundColor:['#4361ee','#4cc9f0','#06d6a0','#ff4d6d','#a78bfa'],borderRadius:8,borderSkipped:false}]},options:{plugins:{legend:{display:false}}}});scCfg('s0',0)}
+const evm_=evmCalc;function sc(ts){scCfg('s1',$('sm').value=='p');const P=one(ts,'P'),A=one(ts,'A'),R=one(ts,'R');
+mk('s2',{type:'bar',data:{labels:labs(),datasets:[{label:'Planned',data:sl(P),backgroundColor:'#4cc9f0',borderRadius:5},{label:'Actual',data:sl(A),backgroundColor:'#ff4d6d',borderRadius:5},{label:'Remaining (forecast)',data:sl(R),backgroundColor:'#ffb703',borderRadius:5}]}})}
+function gr(ts){const g=$('gb').value,at=$('at').value,kf=g=='k'?(t,x)=>x.k=='L'?'Labor':'Non-labor':g=='p'?t=>t.ph:g=='a'?t=>t.cd[at]||'(none)':t=>t.w[+g[1]],K=$('gk').value;
+let o=K=='F'?(()=>{const a=monthly(ts,'A',kf),r=monthly(ts,'R',kf);for(const k in r)a[k]=add(a[k]||new Array(NM).fill(0),r[k]);return a})():monthly(ts,K,kf);
+const ks=Object.keys(o).sort((a,b)=>o[b].reduce((x,y)=>x+y,0)-o[a].reduce((x,y)=>x+y,0)).slice(0,10);
+mk('s3',{type:'line',data:{labels:labs(),datasets:ks.map((k,i)=>({label:k,data:sl(cum(o[k])),borderColor:COL[i],backgroundColor:COL[i],borderWidth:3,pointRadius:0,tension:.3}))},options:{interaction:{mode:'index',intersect:false}}})}
+function hi(ts){const g=$('hs').value,K=$('hk').value,kf=g=='r'?(t,x)=>x.r:g=='t'?(t,x)=>x.ty.replace('RT_','')||'?':g=='p'?t=>t.ph:t=>t.w[0];
+const o=K=='F'?(()=>{const a=monthly(ts,'A',kf),r=monthly(ts,'R',kf);for(const k in r)a[k]=add(a[k]||new Array(NM).fill(0),r[k]);return a})():monthly(ts,K,kf);
+const ks=Object.keys(o).sort((a,b)=>o[b].reduce((x,y)=>x+y,0)-o[a].reduce((x,y)=>x+y,0));let top=ks.slice(0,12);
+if(ks.length>12){const oth=new Array(NM).fill(0);ks.slice(12).forEach(k=>o[k].forEach((v,i)=>oth[i]+=v));o['Others']=oth;top.push('Others')}
+mk('h1',{type:'bar',data:{labels:labs(),datasets:top.map((k,i)=>({label:k,data:sl(o[k]),backgroundColor:COL[i%12]}))},options:{scales:{x:{stacked:true},y:{stacked:true}}}});
+const r=monthly(ts,K=='F'?'P':K,(t,x)=>x.r);const t6=Object.keys(r).sort((a,b)=>r[b].reduce((x,y)=>x+y,0)-r[a].reduce((x,y)=>x+y,0)).slice(0,6);
+mk('h2',{type:'bar',data:{labels:labs(),datasets:t6.map((k,i)=>({label:k,data:sl(r[k]),backgroundColor:COL[i],borderRadius:4}))}})}
+const tbl=(h,rows)=>'<table><tr>'+h.map(x=>`<th>${x}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')+'</table>';
+const stl={TK_NotStart:'Not started',TK_Active:'In progress',TK_Complete:'Complete'};
+function la(ts){const W=+$('lw').value,end=new Date(+DD+W*7*864e5),rows=[],wk=Array.from({length:W},()=>[0,0]);
+for(const t of ts){if(t.st=='TK_Complete')continue;const s=t.as||t.es||t.ts,f=t.ee||t.te;if(!f||f<DD||(s&&s>end))continue;
+rows.push({t,s,f});if(s&&s>=DD){const i=Math.floor((s-DD)/(7*864e5));if(i<W)wk[i][0]++}if(f<=end){const i=Math.floor((f-DD)/(7*864e5));if(i>=0&&i<W)wk[i][1]++}}
+rows.sort((a,b)=>(a.s||0)-(b.s||0));
+mk('l1',{type:'bar',data:{labels:wk.map((_,i)=>'Wk '+(i+1)),datasets:[{label:'Starts',data:wk.map(x=>x[0]),backgroundColor:'#06d6a0',borderRadius:6},{label:'Finishes',data:wk.map(x=>x[1]),backgroundColor:'#f72585',borderRadius:6}]}});
+$('lt').innerHTML=`<b>${rows.length}</b> activities from ${fd(DD)} to ${fd(end)}`+tbl(['Activity ID','Name','WBS L1','Phase','Status','Start','Finish','Float (d)','% Done'],rows.slice(0,500).map(({t,s,f})=>[esc(t.code),esc(t.name),esc(t.w[0]),t.ph,stl[t.st],fd(s),fd(f),t.fl==null?'':`<span class="${t.fl<=0?'bad':t.fl<10?'warn':'ok'}">${t.fl.toFixed(1)}</span>`,(t.pct*100).toFixed(0)+'%']))}
+function dl(ts){const rows=[],day=864e5;for(const t of ts){if(!t.ts&&!t.te)continue;let ty=null,d=0;
+if(t.st=='TK_NotStart'&&(t.es||t.ts)&&(t.es||t.ts)<DD){ty='Late start';d=(DD-(t.es||t.ts))/day}
+else if(t.st=='TK_Active'&&t.ee&&t.te&&t.ee>t.te){ty='Forecast finish slip';d=(t.ee-t.te)/day}
+else if(t.st=='TK_Complete'&&t.ae&&t.te&&t.ae>t.te){ty='Finished late';d=(t.ae-t.te)/day}
+else if(t.st!='TK_Complete'&&t.fl!=null&&t.fl<0){ty='Negative float';d=-t.fl}
+else if(t.st=='TK_Active'&&t.as&&t.ts&&t.as>t.ts){ty='Late actual start';d=(t.as-t.ts)/day}
+if(ty&&d>=1)rows.push({t,ty,d})}rows.sort((a,b)=>b.d-a.d);
+const c={};rows.forEach(r=>c[r.ty]=(c[r.ty]||0)+1);const w={};rows.forEach(r=>w[r.t.w[0]]=(w[r.t.w[0]]||0)+1);
+mk('e1',{type:'doughnut',data:{labels:Object.keys(c),datasets:[{data:Object.values(c),backgroundColor:COL,borderWidth:0}]}});
+mk('e2',{type:'bar',data:{labels:Object.keys(w),datasets:[{data:Object.values(w),backgroundColor:COL,borderRadius:6}]},options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+$('et').innerHTML=`<b>${rows.length}</b> delayed activities (vs target/baseline dates, data date ${fd(DD)})`+tbl(['Activity ID','Name','WBS L1','Delay type','Delay (d)','Target start','Target finish','Early finish','Float (d)'],rows.slice(0,500).map(({t,ty,d})=>[esc(t.code),esc(t.name),esc(t.w[0]),ty,`<span class="bad">${d.toFixed(0)}</span>`,fd(t.ts),fd(t.te),fd(t.ee),t.fl==null?'':t.fl.toFixed(1)]))}
+function dc(ts){const e=evm_(ts),ph={};ts.forEach(t=>ph[t.ph]=(ph[t.ph]||0)+1);
+$('dt').innerHTML=tbl(['Item','Value'],[['Projects in file',(T.PROJECT||[]).length],['Data date used',fd(DD)],['Activities (filtered / total, excl. WBS summary)',ts.length+' / '+TK.length],['Resource assignments (TASKRSRC)',(T.TASKRSRC||[]).length],['Resources',(T.RSRC||[]).length],['WBS nodes',(T.PROJWBS||[]).length],['Activity code types / values',(T.ACTVTYPE||[]).length+' / '+(T.ACTVCODE||[]).length],['Total budget (target) – current filter',N0(e.BAC)],['Actual to date – current filter',N0(e.AC)],['Remaining – current filter',N0(e.RC)],['Phase split (keyword based)',Object.entries(ph).map(([k,v])=>k+': '+v).join(' · ')],['Method','Planned = target dates; Actual = actual dates up to data date; Earned = target × % complete; Forecast = actual + remaining over restart/early dates; spread linearly per month; float days = hours / 8']])}
+document.querySelectorAll('#sb button').forEach(b=>b.onclick=()=>{PG=b.dataset.p;document.querySelectorAll('#sb button').forEach(x=>x.classList.toggle('on',x==b));document.querySelectorAll('.pg').forEach(p=>p.classList.toggle('on',p.id=='p-'+PG));render()});
+document.querySelectorAll('.f').forEach(e=>e.addEventListener('change',()=>{if(e.id=='proj'){bounds();refill()}if(e.id=='wl'||e.id=='at')refill();render()}));
+if(window.PRELOAD){try{const p=window.PRELOAD;p.xml?loadXML(p.text):load(parse(p.text));document.title='Dashboard - '+p.name}catch(x){$('msg').hidden=false;$('msg').textContent='Error: '+x.message}}
+</script></body></html>
